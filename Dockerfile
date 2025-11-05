@@ -46,11 +46,12 @@ COPY --from=frontend /app/public/build ./public/build
 
 # ensure directories exist and have proper permissions
 RUN mkdir -p bootstrap/cache storage \
- && chown -R www-data:www-data bootstrap storage \
- && chmod -R 775 bootstrap storage
+ && chmod -R 775 bootstrap/cache storage \
+ && chown -R www-data:www-data bootstrap/cache storage
 
 # now safely run composer post-install scripts (artisan is now here)
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# create the cache folder again right before composer just to be safe
+RUN mkdir -p bootstrap/cache && composer install --no-dev --optimize-autoloader --no-interaction
 
 USER www-data
 
