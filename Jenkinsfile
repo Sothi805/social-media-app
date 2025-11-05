@@ -5,6 +5,7 @@ pipeline {
         GIT_REPO_URL = "https://github.com/Sothi805/social-media-app.git"
         IMAGE_NAME = "vethsothi/social-media-app"
         DOCKER_CREDENTIALS = "dockerhub_creds"
+        REMOTE_SSH_KEY = "REMOTE_SSH_KEY"
         REMOTE_USER = "ubuntu"
         REMOTE_HOST = "98.81.79.6"
         REMOTE_PATH = "/home/ubuntu/deploy"
@@ -20,13 +21,13 @@ pipeline {
             steps {
                 script {
                     if (params.TAG) {
-                        echo "Checking out tag: ${params.TAG}"
+                        echo "📦 Checking out tag: ${params.TAG}"
                         checkout([$class: 'GitSCM',
                             branches: [[name: "refs/tags/${params.TAG}"]],
                             userRemoteConfigs: [[url: env.GIT_REPO_URL]]
                         ])
                     } else {
-                        echo "Checking out branch: ${params.BRANCH}"
+                        echo "📦 Checking out branch: ${params.BRANCH}"
                         checkout([$class: 'GitSCM',
                             branches: [[name: params.BRANCH]],
                             userRemoteConfigs: [[url: env.GIT_REPO_URL]]
@@ -39,9 +40,11 @@ pipeline {
         stage('Build Docker image') {
             steps {
                 script {
-                    bat """
-                        docker build -t ${IMAGE_NAME}:${params.TAG} .
-                    """
+                    if (isUnix()) {
+                        sh "docker build -t ${IMAGE_NAME}:${params.TAG} ."
+                    } else {
+                        bat "docker build -t ${IMAGE_NAME}:${params.TAG} ."
+                    }
                     echo "✅ Built image ${IMAGE_NAME}:${params.TAG}"
                 }
             }
@@ -50,33 +53,53 @@ pipeline {
         stage('Login to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    script {
+                        if (isUnix()) {
+                            sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                        } else {
+                            bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
+                        }
+                    }
                 }
             }
         }
 
         stage('Push image to Docker Hub') {
             steps {
-                sh """
-                    docker push ${IMAGE_NAME}:${params.TAG}
-                """
+                script {
+                    if (isUnix()) {
+                        sh "docker push ${IMAGE_NAME}:${params.TAG}"
+                    } else {
+                        bat "docker push ${IMAGE_NAME}:${params.TAG}"
+                    }
+                    echo "📤 Pushed ${IMAGE_NAME}:${params.TAG} to Docker Hub"
+                }
             }
         }
 
         stage('Deploy to EC2') {
             steps {
-                sshagent(['REMOTE_SSH_KEY']) {
-                    sh """
-                        scp -o StrictHostKeyChecking=no docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
-                        ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} '
-                            cd ${REMOTE_PATH}
-                            sudo apt-get update -y
-                            sudo apt-get install -y docker-compose
-                            sudo docker compose down || true
-                            sudo docker pull ${IMAGE_NAME}:${params.TAG}
-                            sudo docker compose up -d
-                        '
-                    """
+                sshagent([env.REMOTE_SSH_KEY]) {
+                    script {
+                        if (isUnix()) {
+                            sh """
+                                scp -o StrictHostKeyChecking=no docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+                                ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} '
+                                    cd ${REMOTE_PATH}
+                                    sudo apt-get update -y
+                                    sudo apt-get install -y docker-compose-plugin
+                                    sudo docker compose down || true
+                                    sudo docker pull ${IMAGE_NAME}:${params.TAG}
+                                    sudo docker compose up -d
+                                '
+                            """
+                        } else {
+                            bat """
+                                pscp -pw YOUR_PASSWORD docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}\\
+                                plink ${REMOTE_USER}@${REMOTE_HOST} "cd ${REMOTE_PATH} && sudo docker pull ${IMAGE_NAME}:${params.TAG} && sudo docker compose down || true && sudo docker compose up -d"
+                            """
+                        }
+                    }
                 }
             }
         }
@@ -84,10 +107,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment completed for ${IMAGE_NAME}:${params.TAG}"
+            echo "✅ Deployment completed successfully for ${IMAGE_NAME}:${params.TAG}"
         }
         failure {
-            echo "❌ Deployment failed!"
+            echo "❌ Deployment failed. Please check the logs for details."
         }
     }
 }
