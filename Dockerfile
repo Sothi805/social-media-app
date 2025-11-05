@@ -44,16 +44,27 @@ COPY . .
 # bring in built frontend assets
 COPY --from=frontend /app/public/build ./public/build
 
-# ensure directories exist and have proper permissions
-RUN mkdir -p bootstrap/cache storage \
- && chmod -R 775 bootstrap/cache storage \
- && chown -R www-data:www-data bootstrap/cache storage
+# ensure Laravel cache and storage directories exist and are writable
+RUN mkdir -p bootstrap/cache \
+    storage/framework/cache/data \
+ && chmod -R 775 bootstrap storage \
+ && chown -R www-data:www-data bootstrap storage
 
-# now safely run composer post-install scripts (artisan is now here)
-# create the cache folder again right before composer just to be safe
-RUN mkdir -p bootstrap/cache && composer install --no-dev --optimize-autoloader --no-interaction
+# install dependencies WITHOUT running artisan scripts yet
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+# copy entire Laravel source after dependencies
+COPY . .
+
+# run post-install scripts manually (artisan commands)
+RUN mkdir -p bootstrap/cache storage/framework/cache/data \
+ && chmod -R 775 bootstrap storage \
+ && chown -R www-data:www-data bootstrap storage \
+ && composer run-script post-install-cmd || true \
+ && php artisan package:discover --ansi || true
 
 USER www-data
 
 EXPOSE 9000
 CMD ["php-fpm"]
+
