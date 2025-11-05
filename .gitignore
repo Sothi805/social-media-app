@@ -16,7 +16,6 @@
 .env.*.local
 
 # Composer / npm logs
-composer.lock
 npm-debug.log
 yarn-error.log
 pnpm-debug.log
