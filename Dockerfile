@@ -32,15 +32,18 @@ WORKDIR /var/www/html
 
 # Copy only composer files first (for better caching)
 COPY composer.json composer.lock ./
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Copy full Laravel source AFTER dependencies
+COPY . .
 
-# Create Laravel directories and set correct permissions before install
+# Ensure Laravel cache and storage directories exist and are writable
 RUN mkdir -p bootstrap/cache storage \
  && chown -R www-data:www-data bootstrap storage \
- && chmod -R 775 bootstrap storage \
- && composer install --no-dev --optimize-autoloader --no-interaction
+ && chmod -R 775 bootstrap storage
+
+# Now run post-install commands safely
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # Copy application source code
 COPY . .
