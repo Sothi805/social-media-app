@@ -31,7 +31,7 @@ RUN apt-get update \
 WORKDIR /var/www/html
 
 # Copy only composer files first (for better caching)
-COPY composer.json composer.lock ./
+COPY composer.json ./
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
