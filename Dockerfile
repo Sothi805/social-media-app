@@ -1,58 +1,56 @@
 # ───────────────────────────────
-# Stage 1: Build frontend assets
+# Stage 1: Build assets with Node
 # ───────────────────────────────
 FROM node:25-alpine AS frontend
 
 WORKDIR /app
 
-# Copy dependency definitions first (for better caching)
+# copy only files needed for npm install first (better caching)
 COPY package*.json vite.config.* tailwind.config.* postcss.config.* ./
 RUN npm ci
 
-# Copy only source files and build assets
+# then copy source and build
 COPY resources ./resources
 COPY public ./public
 RUN npm run build
 
 
 # ───────────────────────────────
-# Stage 2: PHP runtime (Laravel)
+# Stage 2: PHP-FPM (runtime)
 # ───────────────────────────────
 FROM php:8.4-fpm
 
-# Install required packages and PHP extensions
+# system & PHP deps
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     git curl libpng-dev libonig-dev libxml2-dev zip unzip \
  && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /var/www/html
 
-# Copy only composer files first (for better caching)
+# bring in Composer from official image (do this before composer install)
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# copy only composer files first (for better caching)
 COPY composer.json composer.lock ./
+
+# install dependencies without running scripts (artisan not available yet)
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
-# Copy full Laravel source AFTER dependencies
+# now copy full Laravel app
 COPY . .
 
-# Ensure Laravel cache and storage directories exist and are writable
+# bring in built frontend assets
+COPY --from=frontend /app/public/build ./public/build
+
+# ensure directories exist and have proper permissions
 RUN mkdir -p bootstrap/cache storage \
  && chown -R www-data:www-data bootstrap storage \
  && chmod -R 775 bootstrap storage
 
-# Now run post-install commands safely
+# now safely run composer post-install scripts (artisan is now here)
 RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Copy application source code
-COPY . .
-
-# Bring in built frontend assets
-COPY --from=frontend /app/public/build ./public/build
-
-# Final permission fix (for any new files)
-RUN chown -R www-data:www-data /var/www/html
 
 USER www-data
 
