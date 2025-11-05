@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# Node / Composer cache
+node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+composer.lock
+
+# Local environment
+.env
+.env.*.local
+
+# Docker files themselves
+Dockerfile
+docker-compose*.yml
+docker/
+*.pid
+
+# Build outputs
+/public/hot
+/public/storage
+/public/build
+/storage/
+bootstrap/cache/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# System
+.DS_Store
+Thumbs.db

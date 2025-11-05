@@ -1,0 +1,87 @@
+services:
+  # ───────────────────────────────
+  # PHP (Laravel App)
+  # ───────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: social-media-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    environment:
+      APP_ENV: production
+      APP_DEBUG: false
+      APP_KEY: ${APP_KEY}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - db
+      - redis
+    networks:
+      - social-media-network
+
+  # ───────────────────────────────
+  # NGINX
+  # ───────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: social-media-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - app
+    networks:
+      - social-media-network
+
+  # ───────────────────────────────
+  # MySQL
+  # ───────────────────────────────
+  db:
+    image: mysql/mysql-server:8.0
+    container_name: social-media-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - social-media-network
+
+  # ───────────────────────────────
+  # Redis
+  # ───────────────────────────────
+  redis:
+    image: redis:alpine
+    container_name: social-media-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - social-media-network
+
+# ───────────────────────────────
+# Networks & Volumes
+# ───────────────────────────────
+networks:
+  social-media-network:
+    driver: bridge
+
+volumes:
+  dbdata:
