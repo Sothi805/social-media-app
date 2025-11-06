@@ -105,7 +105,7 @@ pipeline {
                     script {
                         sh """
                             echo "🚀 Copying docker-compose.yml and nginx.conf to EC2..."
-                            scp -i $SSH_KEY -o StrictHostKeyChecking=no docker-compose.yml nginx.conf ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+                            scp -i $SSH_KEY -o StrictHostKeyChecking=no -r docker docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
 
                             echo "⚙️ Deploying on EC2..."
                             ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} '
