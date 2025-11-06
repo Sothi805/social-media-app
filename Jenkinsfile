@@ -12,9 +12,24 @@ pipeline {
     }
 
     parameters {
-        gitParameter(name: 'TAG', type: 'PT_TAG', defaultValue: '', description: 'Select Git tag to build')
-        gitParameter(name: 'BRANCH', type: 'PT_BRANCH', defaultValue: 'main', description: 'Select branch if no tag')
+        gitParameter(
+            name: 'TAG',
+            type: 'PT_TAG',
+            defaultValue: '',
+            description: 'Select Git tag to build',
+            useRepository: 'https://github.com/Sothi805/social-media-app.git',   // ✅ Add this line
+            sortMode: 'DESCENDING_SMART'
+        )
+        gitParameter(
+            name: 'BRANCH',
+            type: 'PT_BRANCH',
+            defaultValue: 'main',
+            description: 'Select branch if no tag',
+            useRepository: 'https://github.com/Sothi805/social-media-app.git',   // ✅ Add this line too
+            sortMode: 'ASCENDING_SMART'
+        )
     }
+
 
     stages {
         stage('Checkout') {
