@@ -103,35 +103,32 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: "${REMOTE_SSH_KEY}", keyFileVariable: 'SSH_KEY')]) {
                     script {
-                        if (isUnix()) {
-                            sh """
-                                echo "🚀 Copying docker-compose.yml to EC2..."
-                                scp -i $SSH_KEY -o StrictHostKeyChecking=no docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+                        sh """
+                            echo "🚀 Copying docker-compose.yml and nginx.conf to EC2..."
+                            scp -i $SSH_KEY -o StrictHostKeyChecking=no docker-compose.yml nginx.conf ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
 
-                                echo "⚙️ Deploying on EC2..."
-                                ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} '
-                                    cd ${REMOTE_PATH}
-                                    sudo apt-get update -y
-                                    sudo apt-get install -y docker-compose-plugin
+                            echo "⚙️ Deploying on EC2..."
+                            ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} '
+                                cd ${REMOTE_PATH}
+                                sudo apt-get update -y
+                                sudo apt-get install -y docker-compose-plugin
 
-                                    # Ensure .env exists
-                                    if [ ! -f .env ]; then
-                                        echo "Creating .env file..."
-                                        cp .env.example .env || touch .env
-                                    fi
+                                # Ensure .env exists
+                                if [ ! -f .env ]; then
+                                    echo "Creating .env file..."
+                                    cp .env.example .env || touch .env
+                                fi
 
-                                    echo "🧱 Deploying updated containers..."
-                                    sudo docker compose down || true
-                                    sudo docker pull ${IMAGE_NAME}:${params.TAG}
-                                    sudo docker compose up -d
-                                '
-                            """
-                        }
+                                echo "🧱 Deploying updated containers..."
+                                sudo docker compose down || true
+                                sudo docker pull ${IMAGE_NAME}:latest
+                                sudo docker compose up -d
+                            '
+                        """
                     }
                 }
             }
         }
-
     }
 
     post {
