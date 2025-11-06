@@ -17,7 +17,7 @@ pipeline {
             type: 'PT_TAG',
             defaultValue: '',
             description: 'Select Git tag to build',
-            useRepository: 'https://github.com/Sothi805/social-media-app.git',   // ✅ Add this line
+            useRepository: 'https://github.com/Sothi805/social-media-app.git',
             sortMode: 'DESCENDING_SMART'
         )
         gitParameter(
@@ -25,11 +25,10 @@ pipeline {
             type: 'PT_BRANCH',
             defaultValue: 'main',
             description: 'Select branch if no tag',
-            useRepository: 'https://github.com/Sothi805/social-media-app.git',   // ✅ Add this line too
+            useRepository: 'https://github.com/Sothi805/social-media-app.git',
             sortMode: 'ASCENDING_SMART'
         )
     }
-
 
     stages {
         stage('Checkout') {
@@ -100,10 +99,9 @@ pipeline {
             }
         }
 
-
         stage('Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'REMOTE_SSH_KEY', keyFileVariable: 'SSH_KEY')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: "${REMOTE_SSH_KEY}", keyFileVariable: 'SSH_KEY')]) {
                     script {
                         if (isUnix()) {
                             sh """
@@ -116,6 +114,12 @@ pipeline {
                                     sudo apt-get update -y
                                     sudo apt-get install -y docker-compose-plugin
 
+                                    # 🧾 Ensure .env exists
+                                    if [ ! -f .env ]; then
+                                        echo "Creating .env file..."
+                                        cp .env.example .env || touch .env
+                                    fi
+
                                     echo "🧱 Rebuilding Docker containers..."
                                     sudo docker compose down || true
                                     sudo docker compose build --no-cache
@@ -125,17 +129,14 @@ pipeline {
                         } else {
                             bat """
                                 pscp -i %SSH_KEY% -batch -r * ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}\\
-                                plink -i %SSH_KEY% ${REMOTE_USER}@${REMOTE_HOST} "cd ${REMOTE_PATH} && sudo docker compose build --no-cache && sudo docker compose up -d"
+                                plink -i %SSH_KEY% ${REMOTE_USER}@${REMOTE_HOST} "cd ${REMOTE_PATH} && if not exist .env copy .env.example .env && sudo docker compose build --no-cache && sudo docker compose up -d"
                             """
                         }
                     }
                 }
             }
         }
-
     }
-
-
 
     post {
         success {
