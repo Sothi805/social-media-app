@@ -94,31 +94,39 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                sshagent([env.REMOTE_SSH_KEY]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'REMOTE_SSH_KEY', keyFileVariable: 'SSH_KEY')]) {
                     script {
                         if (isUnix()) {
                             sh """
-                                scp -o StrictHostKeyChecking=no docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
-                                ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} '
+                                echo "🚀 Copying source code to EC2..."
+                                scp -i $SSH_KEY -o StrictHostKeyChecking=no -r * ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+
+                                echo "⚙️ Building and running on EC2..."
+                                ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} '
                                     cd ${REMOTE_PATH}
                                     sudo apt-get update -y
                                     sudo apt-get install -y docker-compose-plugin
+
+                                    echo "🧱 Building Docker image on EC2..."
+                                    sudo docker compose build --no-cache
+
+                                    echo "📦 Starting services..."
                                     sudo docker compose down || true
-                                    sudo docker pull ${IMAGE_NAME}:${params.TAG}
                                     sudo docker compose up -d
                                 '
                             """
                         } else {
                             bat """
-                                pscp -pw YOUR_PASSWORD docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}\\
-                                plink ${REMOTE_USER}@${REMOTE_HOST} "cd ${REMOTE_PATH} && sudo docker pull ${IMAGE_NAME}:${params.TAG} && sudo docker compose down || true && sudo docker compose up -d"
+                                pscp -i %SSH_KEY% -batch -r * ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}\\
+                                plink -i %SSH_KEY% ${REMOTE_USER}@${REMOTE_HOST} "cd ${REMOTE_PATH} && sudo docker compose build --no-cache && sudo docker compose up -d"
                             """
                         }
                     }
                 }
             }
         }
-    }
+
+
 
     post {
         success {
