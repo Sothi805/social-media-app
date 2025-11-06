@@ -1,42 +1,33 @@
+version: "3.8"
+
 services:
   app:
-    build: .
-    container_name: social_media_app
-    restart: always
-    env_file:
-      - .env
+    image: vethsothi/social-media-app:lastest
+    container_name: social-media-app
+    restart: unless-stopped
     ports:
       - "80:80"
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=your-app-key-here
+      - DB_HOST=db
+      - DB_DATABASE=social_media
+      - DB_USERNAME=root
+      - DB_PASSWORD=root
+    volumes:
+      - ./storage:/var/www/html/storage
     depends_on:
       - db
-    volumes:
-      - .:/var/www/html
 
   db:
-    image: mysql/mysql-server:8.0
-    container_name: social_media_db
-    restart: always
+    image: mysql:8.0
+    container_name: social-media-db
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: social_media
     volumes:
-      - db_data:/var/lib/mysql
-
-  redis:
-    image: redis:alpine
-    container_name: social_media_redis
-    restart: always
-
-  nginx:
-    image: nginx:latest
-    container_name: social_media_nginx
-    restart: always
+      - ./db_data:/var/lib/mysql
     ports:
-      - "8080:80"
-    depends_on:
-      - app
-
-volumes:
-  db_data:
+      - "3306:3306"

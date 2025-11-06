@@ -105,37 +105,33 @@ pipeline {
                     script {
                         if (isUnix()) {
                             sh """
-                                echo "🚀 Copying project to EC2..."
-                                scp -i $SSH_KEY -o StrictHostKeyChecking=no -r * ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+                                echo "🚀 Copying docker-compose.yml to EC2..."
+                                scp -i $SSH_KEY -o StrictHostKeyChecking=no docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
 
-                                echo "⚙️ Building and running on EC2..."
+                                echo "⚙️ Deploying on EC2..."
                                 ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} '
                                     cd ${REMOTE_PATH}
                                     sudo apt-get update -y
                                     sudo apt-get install -y docker-compose-plugin
 
-                                    # 🧾 Ensure .env exists
+                                    # Ensure .env exists
                                     if [ ! -f .env ]; then
                                         echo "Creating .env file..."
                                         cp .env.example .env || touch .env
                                     fi
 
-                                    echo "🧱 Rebuilding Docker containers..."
+                                    echo "🧱 Deploying updated containers..."
                                     sudo docker compose down || true
-                                    sudo docker compose build --no-cache
+                                    sudo docker pull ${IMAGE_NAME}:${params.TAG}
                                     sudo docker compose up -d
                                 '
-                            """
-                        } else {
-                            bat """
-                                pscp -i %SSH_KEY% -batch -r * ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}\\
-                                plink -i %SSH_KEY% ${REMOTE_USER}@${REMOTE_HOST} "cd ${REMOTE_PATH} && if not exist .env copy .env.example .env && sudo docker compose build --no-cache && sudo docker compose up -d"
                             """
                         }
                     }
                 }
             }
         }
+
     }
 
     post {
