@@ -83,14 +83,23 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
-                        sh "docker push ${IMAGE_NAME}:${params.TAG}"
+                        sh """
+                            docker push ${IMAGE_NAME}:${params.TAG}
+                            docker tag ${IMAGE_NAME}:${params.TAG} ${IMAGE_NAME}:latest
+                            docker push ${IMAGE_NAME}:latest
+                        """
                     } else {
-                        bat "docker push ${IMAGE_NAME}:${params.TAG}"
+                        bat """
+                            docker push ${IMAGE_NAME}:${params.TAG}
+                            docker tag ${IMAGE_NAME}:${params.TAG} ${IMAGE_NAME}:latest
+                            docker push ${IMAGE_NAME}:latest
+                        """
                     }
-                    echo "📤 Pushed ${IMAGE_NAME}:${params.TAG} to Docker Hub"
+                    echo "📤 Pushed ${IMAGE_NAME}:${params.TAG} and :latest to Docker Hub"
                 }
             }
         }
+
 
         stage('Deploy to EC2') {
             steps {
@@ -98,27 +107,20 @@ pipeline {
                     script {
                         if (isUnix()) {
                             sh """
-                                echo "🚀 Copying source code to EC2..."
-                                scp -i $SSH_KEY -o StrictHostKeyChecking=no -r * ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
-
-                                echo "⚙️ Building and running on EC2..."
+                                echo "🚀 Deploying new image on EC2..."
                                 ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} '
-                                    cd ${REMOTE_PATH}
-                                    sudo apt-get update -y
-                                    sudo apt-get install -y docker-compose-plugin
+                                    cd ${REMOTE_PATH} || mkdir -p ${REMOTE_PATH}
+                                    echo "🧱 Updating containers..."
+                                    sudo apt-get update -y >/dev/null 2>&1
+                                    sudo apt-get install -y docker-compose-plugin >/dev/null 2>&1
 
-                                    echo "🧱 Building Docker image on EC2..."
-                                    sudo docker compose build --no-cache
+                                    echo "📦 Pulling latest image..."
+                                    sudo docker pull ${IMAGE_NAME}:${params.TAG}
 
-                                    echo "📦 Starting services..."
+                                    echo "♻️ Restarting containers..."
                                     sudo docker compose down || true
                                     sudo docker compose up -d
                                 '
-                            """
-                        } else {
-                            bat """
-                                pscp -i %SSH_KEY% -batch -r * ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}\\
-                                plink -i %SSH_KEY% ${REMOTE_USER}@${REMOTE_HOST} "cd ${REMOTE_PATH} && sudo docker compose build --no-cache && sudo docker compose up -d"
                             """
                         }
                     }
