@@ -107,26 +107,32 @@ pipeline {
                     script {
                         if (isUnix()) {
                             sh """
-                                echo "🚀 Deploying new image on EC2..."
+                                echo "🚀 Copying project to EC2..."
+                                scp -i $SSH_KEY -o StrictHostKeyChecking=no -r * ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+
+                                echo "⚙️ Building and running on EC2..."
                                 ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} '
-                                    cd ${REMOTE_PATH} || mkdir -p ${REMOTE_PATH}
-                                    echo "🧱 Updating containers..."
-                                    sudo apt-get update -y >/dev/null 2>&1
-                                    sudo apt-get install -y docker-compose-plugin >/dev/null 2>&1
+                                    cd ${REMOTE_PATH}
+                                    sudo apt-get update -y
+                                    sudo apt-get install -y docker-compose-plugin
 
-                                    echo "📦 Pulling latest image..."
-                                    sudo docker pull ${IMAGE_NAME}:${params.TAG}
-
-                                    echo "♻️ Restarting containers..."
+                                    echo "🧱 Rebuilding Docker containers..."
                                     sudo docker compose down || true
+                                    sudo docker compose build --no-cache
                                     sudo docker compose up -d
                                 '
+                            """
+                        } else {
+                            bat """
+                                pscp -i %SSH_KEY% -batch -r * ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}\\
+                                plink -i %SSH_KEY% ${REMOTE_USER}@${REMOTE_HOST} "cd ${REMOTE_PATH} && sudo docker compose build --no-cache && sudo docker compose up -d"
                             """
                         }
                     }
                 }
             }
         }
+
     }
 
 
