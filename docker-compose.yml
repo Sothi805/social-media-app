@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   app:
-    image: vethsothi/social-media-app
+    image: vethsothi/social-media-app:latest
     container_name: social-media-app
     restart: unless-stopped
     ports:
